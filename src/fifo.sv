@@ -1,8 +1,8 @@
 module FIFO (clk, reset, din, dinV, dinR, doutV, doutR, dout, cnt);
 parameter DATASIZE = 8;						// # of bits per FIFO entry
 parameter FIFOSIZE = 128;					// # of FIFO entries
-localparam HEADSIZE = $clog2(FIFOSIZE); 	// # of bits for each pointer head (write and read)
-localparam CNTSIZE = HEADSIZE+1;			// # of bits for FIFO entry count
+localparam PTRSIZE = $clog2(FIFOSIZE); 		// # of bits for each pointer head (write and read)
+localparam CNTSIZE = PTRSIZE+1;				// # of bits for FIFO entry count
 
 /*
 NOTE: For FIFO between DSP and I2C Interface module, DATASIZE
@@ -12,9 +12,9 @@ NOTE: For FIFO between DSP and I2C Interface module, DATASIZE
 */
 
 if ((DATASIZE < 1) || (type(DATASIZE) != type(int)))
-	$fatal("DATASIZE must be an integer greater than 0!");
+	$fatal("DATASIZE of module FIFO must be an integer greater than 0!");
 if ((FIFOSIZE < 2) || (type(FIFOSIZE) != type(int)))
-	$fatal("FIFOSIZE must be an integer greater than 1!");
+	$fatal("FIFOSIZE of module FIFO must be an integer greater than 1!");
 
 /*
 *** PIN DESCRIPTIONS ***
@@ -29,13 +29,53 @@ dout:	Data going to I2C module
 cnt:	# of FIFO entries ready to be read by I2C
 */
 
-input clk, reset, dinV, dinR, doutV, doutR;
+input clk, reset, dinV, doutR;
 input [DATASIZE-1:0] din;
-output [CNTSIZE-1:0] cnt;
+output dinR, doutV;
+output reg [CNTSIZE-1:0] cnt;
 output [DATASIZE-1:0] dout;
 
-logic [DATASIZE-1:0][FIFOSIZE-1:0] FIFO;
-logic [HEADSIZE-1:0] ReadHead;
-logic [HEADSIZE-1:0] WriteHead;
+logic [DATASIZE-1:0] FIFO [FIFOSIZE-1:0];
+logic [PTRSIZE-1:0] ReadPtr;
+logic [PTRSIZE-1:0] WritePtr;
+
+assign dinR = (cnt != FIFOSIZE);
+assign doutV = (cnt != 0);
+assign dout = FIFO[ReadPtr];
+
+always_ff @(posedge clk)
+begin
+if (reset)
+	begin
+	cnt <= '0;
+	ReadPtr <= '0;
+	WritePtr <= '0;
+	end
+else
+	begin
+	cnt <= cnt;
+	FIFO[WritePtr] <= FIFO[WritePtr];
+	ReadPtr <= ReadPtr;
+	WritePtr <= WritePtr;
+	if ((dinR && dinV) && (doutR && doutV))						// Read and Write FIFO
+		begin
+		cnt <= cnt;
+		FIFO[WritePtr] <= din;
+		ReadPtr <= (ReadPtr == FIFOSIZE-1) ? '0 : ReadPtr + 1;
+		WritePtr <= (WritePtr == FIFOSIZE-1) ? '0 : WritePtr + 1;
+		end
+	else if (dinR && dinV)										// Write to FIFO
+		begin
+		cnt <= cnt + 1;
+		FIFO[WritePtr] <= din;
+		WritePtr <= (WritePtr == FIFOSIZE-1) ? '0 : WritePtr + 1;
+		end
+	else if (doutR && doutV)									// Read from FIFO
+		begin
+		cnt <= cnt - 1;
+		ReadPtr <= (ReadPtr == FIFOSIZE-1) ? '0 : ReadPtr + 1;
+		end
+	end
+end
 
 endmodule
