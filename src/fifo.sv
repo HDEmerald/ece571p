@@ -1,8 +1,8 @@
 module FIFO (clk, reset, din, dinV, dinR, doutV, doutR, dout, cnt);
-parameter DATASIZE = 8;						// # of bits per FIFO entry
-parameter FIFOSIZE = 128;					// # of FIFO entries
-localparam PTRSIZE = $clog2(FIFOSIZE); 		// # of bits for each pointer head (write and read)
-localparam CNTSIZE = PTRSIZE+1;				// # of bits for FIFO entry count
+parameter int DATASIZE = 8;						// # of bits per FIFO entry
+parameter int FIFOSIZE = 128;					// # of FIFO entries
+localparam PTRSIZE = $clog2(FIFOSIZE); 			// # of bits for each pointer head (write and read)
+localparam CNTSIZE = PTRSIZE+1;					// # of bits for FIFO entry count
 
 /*
 NOTE: For FIFO between DSP and I2C Interface module, DATASIZE
