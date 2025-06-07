@@ -38,8 +38,17 @@ module i2c_slave #(
   wire sda_falling = (sda_sync == 2'b10);
   wire sda_rising  = (sda_sync == 2'b01);
 
-  wire start_cond  = (scl_sync[1] == 1 && sda_falling);
-  wire stop_cond   = (scl_sync[1] == 1 && sda_rising);
+  wire start_cond;
+  wire stop_cond;
+  wire busy;
+  i2c_bus_monitor i2c_bm(
+    .clk(clk),
+    .rst(rst),
+	.i2c(i2c),
+    .busy(busy),
+    .start(start_cond),
+    .stop(stop_cond)
+  );
 
   typedef enum logic [2:0] {
     IDLE, ADDRESS, ACK_ADDR, SEND_BYTE, WAIT_ACK, STOP
@@ -48,6 +57,7 @@ module i2c_slave #(
   state_t state;
   logic [7:0] shift_reg;
   logic [3:0] bit_cnt;
+  logic data_cycle;
 
   always_ff @(posedge clk) begin
     if (rst) begin
@@ -56,6 +66,7 @@ module i2c_slave #(
       sda_out_en         <= 0;
       sda_out_val        <= 0;
       fifo_rd_en <= 0;
+      data_cycle <= 0;
     end else begin
       fifo_rd_en <= 0;
       sda_out_en         <= 0;
@@ -70,7 +81,7 @@ module i2c_slave #(
 
         ADDRESS: begin
           if (scl_rising) begin
-            shift_reg <= {shift_reg[6:0], sda_sync[1]};
+            shift_reg <= {shift_reg[6:0], i2c.sda};
             if (bit_cnt == 7) begin
               state <= ACK_ADDR;
               sda_out_en <= 1;
@@ -96,12 +107,17 @@ module i2c_slave #(
 
         SEND_BYTE: begin
           sda_out_en <= 1;
-          if (scl_falling) begin
+          if ((i2c.scl == 0) && (data_cycle == 0)) begin
             sda_out_val <= fifo_dout[7 - bit_cnt];
             bit_cnt <= bit_cnt + 1;
-            if (bit_cnt == 7)
+            data_cycle <= 1;
+            if (bit_cnt == 7) begin
               state <= WAIT_ACK;
+              data_cycle <= 0;
+            end
           end
+          else if (i2c.scl == 1)
+            data_cycle <= 0;
         end
 
         WAIT_ACK: begin
@@ -110,9 +126,7 @@ module i2c_slave #(
             if (sda_sync[1] == 1) begin
               state <= STOP;
             end else begin
-              bit_cnt <= 0;
-              fifo_rd_en <= 1;
-              state <= SEND_BYTE;
+              state <= STOP;
             end
           end
         end

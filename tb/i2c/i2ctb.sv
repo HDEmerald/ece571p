@@ -14,7 +14,7 @@ module i2c_tb;
   i2c_if i2c();
 
   // Open-drain SDA/SCL drive logic
-  assign i2c.sda = sda_drive ? sda_val : 1'bz;
+  assign i2c.sda = sda_drive ? sda_val : 1'b1;
   assign i2c.scl = scl;
 
   // Clock generation
@@ -41,8 +41,7 @@ module i2c_tb;
   endtask
 
   task send_bit(input bit b);
-    sda_val = b;
-    @(negedge clk); scl = 1;
+    @(negedge clk); scl = 1; sda_val = b;
     @(negedge clk); scl = 0;
   endtask
 
@@ -99,17 +98,24 @@ module i2c_tb;
 
     #100;
     send_start();
-    send_byte(8'h85);       // 0x42 << 1 | 1 = 0x85 (read)
+    send_byte(8'h85);       // ((0x42 << 1) | 1) = 0x85 (read)
     read_bit(ack);          // ACK from slave
     $display("ACK from slave: %b", ack);
 
     read_byte(rx);          // Read 1 byte
     $display("Received byte from slave: %2h", rx);
 
-    send_nack();            // Master done reading
+    send_ack();            // Master done reading
     send_stop();
 
     #100 $finish;
+  end
+
+  initial
+  begin
+  `ifdef DEBUG
+  $dumpfile("dump.vcd"); $dumpvars;
+  `endif
   end
 
 endmodule
