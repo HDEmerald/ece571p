@@ -1,4 +1,4 @@
-module top;
+module fifo_tb;
 parameter DEBUG = 0;
 parameter TESTS = 100;
 parameter MAXERR = 10;
@@ -8,7 +8,7 @@ parameter int FIFOSIZE = 128;
 localparam PTRSIZE = $clog2(FIFOSIZE);
 localparam CNTSIZE = PTRSIZE+1;
 
-reg clk, reset, dinV, doutR;
+reg clk, rst_n, dinV, doutR;
 reg [DATASIZE-1:0] din;
 wire dinR, doutV;
 wire [CNTSIZE-1:0] cnt;
@@ -22,7 +22,7 @@ NOTE: For FIFO between DSP and I2C Interface module, DATASIZE
 */
 
 // DUT
-FIFO #(DATASIZE,FIFOSIZE) fifo(clk, reset, din, dinV, dinR, doutV, doutR, dout, cnt);
+FIFO #(DATASIZE,FIFOSIZE) fifo(clk, rst_n, din, dinV, dinR, doutV, doutR, dout, cnt);
 
 // Golden Device
 logic [DATASIZE-1:0] q [$:FIFOSIZE-1];
@@ -71,12 +71,12 @@ clk = 0;
 forever #10 clk = ~clk;
 end
 
-// Assert reset signal for a few clks
+// Assert rst_n signal for a few clks
 initial
 begin
-reset = 1;
+rst_n = 0;
 repeat (3) @(negedge clk);
-reset = 0;
+rst_n = 1;
 end
 
 logic [DATASIZE-1:0] tempFData;

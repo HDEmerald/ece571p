@@ -2,7 +2,7 @@
 
 module i2c_tb;
 
-  logic clk, rst;
+  logic clk, rst_n;
   logic sda_drive, sda_val;
   logic scl;
   logic fifo_valid, fifo_rd_en;
@@ -25,7 +25,7 @@ module i2c_tb;
   i2c_slave #(.SLAVE_ADDR(7'h42)) dut (
     .clk(clk),
 	.i2c(i2c),
-	.rst(rst),
+	.rst_n(rst_n),
 	.fifo_valid(fifo_valid),
 	.fifo_dout(fifo_dout),
 	.fifo_rd_en(fifo_rd_en)
@@ -89,12 +89,12 @@ module i2c_tb;
   initial begin
     $display("Begin I2C Slave Test");
 
-    rst = 1;
+    rst_n = 0;
     sda_drive = 1; sda_val = 1;
     scl = 1;
     fifo_dout = 8'hA5;
 	fifo_valid = 1;
-    #20 rst = 0;
+    #20 rst_n = 1;
 
     #100;
     send_start();

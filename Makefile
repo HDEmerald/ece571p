@@ -1,7 +1,7 @@
 fifo_deps := $(wildcard src/fifo/*.sv)
 fifotb_deps := tb/fifo/fifotb.sv
 
-bfsk_demod_deps := src/dsp/bfsk_demod.sv src/dsp/goertzel_filter.sv src/dsp/byte_packer.sv
+bfsk_demod_deps := $(wildcard src/dsp/*.sv)
 bfsk_demodtb_deps := tb/dsp/bfsk_demod_tb.sv tb/dsp/waveform_generator.sv
 
 goertzel_deps := src/dsp/goertzel_filter.sv
@@ -10,19 +10,17 @@ goertzeltb_deps := tb/dsp/goertzel_filter_tb.sv tb/dsp/waveform_generator.sv
 byte_packer_deps := src/dsp/byte_packer.sv
 byte_packertb_deps := tb/dsp/byte_packer_tb.sv
 
-# dsp_deps := $(wildcard src/dsp/*.sv)
-# dsptb_deps := tb/dsp/???.sv
-
 i2c_deps := $(wildcard src/i2c/*.sv)
 i2ctb_deps := tb/i2c/i2ctb.sv
 
-# top_deps := fifo_deps dsp_deps i2c_deps
+top_deps := $(fifo_deps) $(bfsk_demod_deps) $(i2c_deps) $(wildcard src/top/*.sv)
+toptb_deps := tb/top/toptb.sv
 
 # Commands for FIFO compilation and simulation
 fifo: $(fifo_deps) $(fifotb_deps)
 	vlog -source -lint $(fifo_deps) $(fifotb_deps)
 sim_fifo: fifo
-	vsim -c top $(ARGS)
+	vsim -c fifo_tb $(ARGS)
 
 # Commands for BFSK Demodulator compilation and simulation
 bfsk_demod: $(bfsk_demod_deps) $(bfsk_demodtb_deps)
@@ -47,3 +45,9 @@ i2c: $(i2c_deps) $(i2ctb_deps)
 	vlog -source -lint $(i2c_deps) $(i2ctb_deps)
 sim_i2c: i2c
 	vsim -c i2c_tb $(ARGS)
+
+# Commands for compiling/simulating the whole module
+top: $(top_deps) $(toptb_deps)
+	vlog -source -lint $(top_deps) $(toptb_deps)
+sim_top: top
+	vsim -c top_tb $(ARGS)

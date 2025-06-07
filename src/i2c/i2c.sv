@@ -14,7 +14,7 @@ module i2c_slave #(
 )(
   input logic         clk,          // Module clock
   i2c_if.slave        i2c,          // I2C bus
-  input logic         rst,          // Reset signal
+  input logic         rst_n,        // Reset signal
 
   input logic         fifo_valid,   // Valid FIFO data out signal
   input logic [7:0]   fifo_dout,    // Data from FIFO to transmit
@@ -43,7 +43,6 @@ module i2c_slave #(
   wire busy;
   i2c_bus_monitor i2c_bm(
     .clk(clk),
-    .rst(rst),
 	.i2c(i2c),
     .busy(busy),
     .start(start_cond),
@@ -59,8 +58,8 @@ module i2c_slave #(
   logic [3:0] bit_cnt;
   logic data_cycle;
 
-  always_ff @(posedge clk) begin
-    if (rst) begin
+  always_ff @(posedge clk or negedge rst_n) begin
+    if (!rst_n) begin
       state              <= IDLE;
       bit_cnt            <= 0;
       sda_out_en         <= 0;
@@ -143,7 +142,6 @@ endmodule
 
 module i2c_bus_monitor(
 	input logic 	clk,
-	input logic 	rst,
 	i2c_if.slave 	i2c,
 	output logic	busy,
 	output logic	start,
@@ -155,9 +153,6 @@ enum {IDLE, READY, START, BUSY, HOLD, STOP} State, NextState;
 // Update state on every posedge
 always_ff @(posedge clk)
 begin
-if (rst)
-	State <= IDLE;
-else
 	State <= NextState;
 end
 
