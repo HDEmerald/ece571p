@@ -127,14 +127,16 @@ module i2c_slave #(
 
 endmodule
 
-module i2c_monitor(
+module i2c_bus_monitor(
 	input logic 	clk,
 	input logic 	rst,
 	i2c_if.slave 	i2c,
-	output logic	busy
+	output logic	busy,
+	output logic	start,
+	output logic	stop
 );
 
-enum {IDLE, READY, BUSY, HOLD} State, NextState;
+enum {IDLE, READY, START, BUSY, HOLD, STOP} State, NextState;
 
 // Update state on every posedge
 always_ff @(posedge clk)
@@ -150,16 +152,20 @@ always_comb
 begin
 case (State)
 	IDLE:	NextState = ((i2c.sda == 0) && (i2c.scl == 1)) ? READY : IDLE;
-	READY:	NextState = ((i2c.sda == 0) && (i2c.scl == 0)) ? BUSY : ((i2c.sda == 1) && (i2c.scl == 1)) ? IDLE : READY;
+	READY:	NextState = ((i2c.sda == 0) && (i2c.scl == 0)) ? START : ((i2c.sda == 1) && (i2c.scl == 1)) ? IDLE : READY;
+	START:	NextState = ((i2c.sda == 0) && (i2c.scl == 1)) ? HOLD : BUSY;
 	BUSY:	NextState = ((i2c.sda == 0) && (i2c.scl == 1)) ? HOLD : BUSY;
-	HOLD:	NextState = ((i2c.sda == 1) && (i2c.scl == 1)) ? IDLE : ((i2c.sda == 0) && (i2c.scl == 1)) ? HOLD : BUSY;
+	HOLD:	NextState = ((i2c.sda == 1) && (i2c.scl == 1)) ? STOP : ((i2c.sda == 0) && (i2c.scl == 1)) ? HOLD : BUSY;
+	STOP:	NextState = ((i2c.sda == 0) && (i2c.scl == 1)) ? READY : IDLE;
 endcase
 end
 
 // Output generation
 always_comb
 begin
-busy = (State == BUSY) || (State == HOLD);
+busy = (State == START) || (State == BUSY) || (State == HOLD);
+start = (State == START);
+stop = (State == STOP);
 end
 
 endmodule
