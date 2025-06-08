@@ -6,7 +6,6 @@ interface i2c_if;
     input scl,
     inout sda
   );
-
 endinterface
 
 module i2c_slave #(

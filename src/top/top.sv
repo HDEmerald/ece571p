@@ -24,7 +24,7 @@ input logic clk, rst_n;
 input logic adc_q_valid_in;
 input logic [ADC_DATA_WIDTH-1:0] adc_q_in;
 output logic adc_q_ready_in;
-i2c_if i2c;
+i2c_if.slave i2c;
 
 /* @@@ Inter-module Wires @@@ */
 /* ADC FIFO Wires */

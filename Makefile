@@ -14,7 +14,7 @@ i2c_deps := $(wildcard src/i2c/*.sv)
 i2ctb_deps := tb/i2c/i2ctb.sv
 
 top_deps := $(fifo_deps) $(bfsk_demod_deps) $(i2c_deps) $(wildcard src/top/*.sv)
-toptb_deps := tb/top/toptb.sv
+toptb_deps := tb/top/toptb.sv tb/dsp/waveform_generator.sv
 
 # Commands for FIFO compilation and simulation
 fifo: $(fifo_deps) $(fifotb_deps)
