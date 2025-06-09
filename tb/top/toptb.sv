@@ -30,10 +30,10 @@ localparam int DATA_WIDTH = 8;
 localparam int BYTE_COUNT = 16; 
 localparam int SYMBOL_COUNT = BYTE_COUNT * DATA_WIDTH;
 /* Testbench Parameters */
+parameter TESTS = 10;
 parameter MONITOR = 0;
 parameter CLOCK_RATIO = 64;
 localparam CLOCK_PULSE = CLOCK_RATIO / 2;
-localparam DISP_CNT = SYMBOL_COUNT / 4;
 
 /* @@@ Testbench signals for DUT @@@ */
 /* DUT Connections */
@@ -53,6 +53,9 @@ logic scl;
 /* Output Capturing Variables */
 logic ack;
 logic [7:0] rx;
+/* Testbench Control Variables */
+logic error;
+logic [SYMBOL_COUNT-1:0] rx_bp;
 
 /* @@@ Instantiate DUT, waveform generator, and I2C master @@@ */
 top #(
@@ -173,54 +176,91 @@ if (MONITOR != 0)
 	end
 end
 
-/* Reset, then start generating symbols one by one */
 initial
 begin
-    rst_n = 0;
-    gen = 0;
-    symbol_value = 0;
-    @( posedge clk );
-    rst_n = 1;
-    @( posedge clk );
+// Show module configuration info
+$display("--- System Info ---");
+$display("+ ADC FIFO");
+$display("Data Width: %0d", ADC_DATA_WIDTH);
+$display("FIFO Depth: %0d", ADC_FIFO_DEPTH);
+$display("");
 
-    for (int symbol_index = 0; symbol_index < SYMBOL_COUNT; symbol_index++ )
-    begin
-        symbol_value = bit_pattern[ symbol_index ];
+$display("+ BFSK Demodulator");
+$display("Frequency 0: %.2f", F0);
+$display("Frequency 1: %.2f", F1);
+$display("");
 
-        /* Generate the next symbol's samples */
-        @(negedge clk);
-        gen = 1;
-        @(negedge clk);
-        gen = 0;
-        wait ( !in_valid );
-    end
-end
+$display("+ I2C Interface");
+$display("I2C Address: 0x%2h", I2C_ADDR);
+$display("");
 
-initial
-begin
+// Initialize I2C bus control signals
 sda_drive = 0; sda_val = 1;
 scl = 1;
 
-bit_pattern = $urandom;
+// Initialize DUT and Stimulation Generating Device
+rst_n = 0;
+gen = 0;
+symbol_value = 0;
+@(posedge clk);
+rst_n = 1;
+@(posedge clk);
 
-repeat (BYTE_COUNT + 5) begin
-	repeat (13000) @(posedge clk);
+// Apply stimulus and measure the results
+repeat (TESTS)
+	begin
+	// Initialize test variables
+	bit_pattern = $urandom;
+	rx_bp = '0;
+	
+	// Generate new bit pattern
+	for (int symbol_index = 0; symbol_index < SYMBOL_COUNT; symbol_index++)
+	begin
+		symbol_value = bit_pattern[symbol_index];
 
-	send_start();
-	send_byte((I2C_ADDR << 1) | 1);       // ((0x42 << 1) | 1) = 0x85 (read)
-	read_bit(ack);          // ACK from slave
+		/* Generate the next symbol's samples */
+		@(negedge clk);
+		gen = 1;
+		@(negedge clk);
+		gen = 0;
+		wait (!in_valid);
+	end
+	
+	// Perform I2C read to device
+	repeat (BYTE_COUNT) 
+		begin
+		repeat (13000) @(posedge clk);
 
-	read_byte(rx);          // Read 1 byte
+		send_start();
+		send_byte((I2C_ADDR << 1) | 1);     // ((0x42 << 1) | 1) = 0x85 (read)
+		read_bit(ack);          			// ACK from slave
 
-	send_ack();            // Master done reading
-	send_stop();
-	$display("ACK from slave: %b", ack);
-	$display("Received byte from slave: %2h", rx);
-end
+		read_byte(rx);          			// Read 1 byte
 
-$display("Random bits to be received: 0x%32h", bit_pattern);		// 32 = SYMBOL_COUNT / 4
+		send_ack();            				// Master done reading
+		send_stop();
+		
+		// Gather received results
+		rx_bp = {rx,rx_bp[SYMBOL_COUNT-1:8]};
+		end
+	
+	// Evaluate results
+	if (rx_bp !== bit_pattern)
+		begin
+		$display("Error @ %0t: rx_bp = 0x%32h (Expctd 0x%32h)", $time, rx_bp, bit_pattern); 	// 32 = SYMBOL_COUNT / 4
+		error = 1;
+		end	
+	end
+
+repeat (100) @(posedge clk);
+
+if (error)
+	$display("@@@ FAILED @@@");
+else
+	$display("@@@ PASSED @@@");
 
 $finish;
+
 end
 
 endmodule
