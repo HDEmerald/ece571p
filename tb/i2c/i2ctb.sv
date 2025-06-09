@@ -1,7 +1,11 @@
 `timescale 1ns/1ns
 
 module i2c_tb;
-
+  parameter TESTS = 100;
+  parameter CLOCK_RATIO = 64;
+  parameter I2C_ADDR = 7'h42;
+  localparam CLOCK_PULSE = CLOCK_RATIO / 2;
+  
   logic clk, rst_n;
   logic sda_drive, sda_val;
   logic scl;
@@ -9,6 +13,7 @@ module i2c_tb;
   logic [7:0] fifo_dout;
   bit ack;
   bit [7:0] rx;
+  bit error;
 
   // Instantiate interface
   i2c_if i2c();
@@ -22,7 +27,7 @@ module i2c_tb;
   always #5 clk = ~clk;
 
   // DUT instantiation
-  i2c_slave #(.SLAVE_ADDR(7'h42)) dut (
+  i2c_slave #(.SLAVE_ADDR(I2C_ADDR)) dut (
     .clk(clk),
 	.i2c(i2c),
 	.rst_n(rst_n),
@@ -33,16 +38,16 @@ module i2c_tb;
 
   // I2C Master tasks
   task send_start();
-    @(negedge clk);
+    repeat (CLOCK_PULSE) @(negedge clk);
     sda_drive = 1; sda_val = 1; scl = 1;
-    @(negedge clk);
+    repeat (CLOCK_PULSE) @(negedge clk);
     sda_val = 0;
-    @(negedge clk); scl = 0;
+    repeat (CLOCK_PULSE) @(negedge clk); scl = 0;
   endtask
 
   task send_bit(input bit b);
-    @(negedge clk); scl = 1; sda_val = b;
-    @(negedge clk); scl = 0;
+    repeat (CLOCK_PULSE) @(negedge clk); scl = 1; sda_val = b;
+    repeat (CLOCK_PULSE) @(negedge clk); scl = 0;
   endtask
 
   task send_byte(input byte data);
@@ -51,8 +56,8 @@ module i2c_tb;
 
   task read_bit(output bit b);
     sda_drive = 0;
-    @(negedge clk); scl = 1;
-    @(negedge clk); b = i2c.sda;
+    repeat (CLOCK_PULSE) @(negedge clk); scl = 1;
+    repeat (CLOCK_PULSE) @(negedge clk); b = i2c.sda;
     scl = 0;
   endtask
 
@@ -66,47 +71,71 @@ module i2c_tb;
 
   task send_ack();
     sda_drive = 1; sda_val = 0;
-    @(negedge clk); scl = 1;
-    @(negedge clk); scl = 0;
-    sda_drive = 0;
+    repeat (CLOCK_PULSE) @(negedge clk);
+    scl = 1;
+    repeat (CLOCK_PULSE) @(negedge clk);
+    scl = 0;
+    repeat (CLOCK_PULSE) @(negedge clk);
   endtask
 
   task send_nack();
     sda_drive = 1; sda_val = 1;
-    @(negedge clk); scl = 1;
-    @(negedge clk); scl = 0;
-    sda_drive = 0;
+    repeat (CLOCK_PULSE) @(negedge clk);
+    scl = 1;
+    repeat (CLOCK_PULSE) @(negedge clk);
+    scl = 0;
+    repeat (CLOCK_PULSE) @(negedge clk);
   endtask
 
   task send_stop();
     sda_drive = 1; sda_val = 0; scl = 1;
-    @(negedge clk);
+    repeat (CLOCK_PULSE) @(negedge clk);
     sda_val = 1;
-    @(posedge clk);
+    repeat (CLOCK_PULSE) @(posedge clk);
+    sda_drive = 0;
   endtask
 
   // Test sequence
   initial begin
     $display("Begin I2C Slave Test");
-
+    
+    error = 0;
     rst_n = 0;
     sda_drive = 1; sda_val = 1;
     scl = 1;
-    fifo_dout = 8'hA5;
-	fifo_valid = 1;
     #20 rst_n = 1;
+    fifo_valid = 1;
 
-    #100;
+    repeat (TESTS) begin
+    
+    // random value to transmit
+    fifo_dout = $urandom();
+    
+    // wait a random amount of time between transactions
+    repeat ($urandom_range(0.5*CLOCK_PULSE,2*CLOCK_PULSE)) @(negedge clk);
+
+    // start transaction
     send_start();
-    send_byte(8'h85);       // ((0x42 << 1) | 1) = 0x85 (read)
-    read_bit(ack);          // ACK from slave
-    $display("ACK from slave: %b", ack);
+    send_byte((I2C_ADDR << 1) | 1);      // ((0x42 << 1) | 1) = 0x85 (read)
 
-    read_byte(rx);          // Read 1 byte
-    $display("Received byte from slave: %2h", rx);
+    read_bit(ack);          		// ACK from slave
 
-    send_ack();            // Master done reading
+    read_byte(rx);          		// Read 1 byte
+
+    send_ack();            			// Master done reading
     send_stop();
+	
+    if ((ack !== 0) || (rx !== fifo_dout)) begin
+      $display("Error @ %0t: ack,rx = 0b%1b,0x%2h (Expctd 0b0,0x%2h)", $time, ack, rx, fifo_dout);
+      error = 1;
+    end
+
+    end
+
+    if (error)
+      $display("@@@ FAILED @@@");
+    else
+      $display("@@@ PASSED @@@");
 
     #100 $finish;
   end

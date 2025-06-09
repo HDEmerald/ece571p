@@ -23,7 +23,7 @@ module i2c_slave #(
   // SDA handling (open-drain)
   logic sda_out_en;
   logic sda_out_val;
-  assign i2c.sda = sda_out_en ? sda_out_val : 1'bz;
+  assign i2c.sda = sda_out_en ? sda_out_val : 1'b1;
 
   // Synchronize and detect edges
   logic [1:0] sda_sync, scl_sync;
@@ -80,26 +80,25 @@ module i2c_slave #(
         ADDRESS: begin
           if (scl_rising) begin
             shift_reg <= {shift_reg[6:0], i2c.sda};
-            if (bit_cnt == 7) begin
-              state <= ACK_ADDR;
-              sda_out_en <= 1;
-            end
             bit_cnt <= bit_cnt + 1;
+          end
+          if ((bit_cnt == 8) && (scl_falling)) begin
+            state <= ACK_ADDR;
           end
         end
 
         ACK_ADDR: begin
-          sda_out_en <= 1;
-          sda_out_val <= 0;
-          if (scl_falling) begin
-            if (shift_reg[7:1] == SLAVE_ADDR && shift_reg[0] == 1 && fifo_valid == 1) begin
-              fifo_rd_en <= 1;
-              bit_cnt <= 0;
+          if (shift_reg[7:1] == SLAVE_ADDR && shift_reg[0] == 1 && fifo_valid == 1) begin
+            sda_out_en <= 1;
+            sda_out_val <= 0;
+            bit_cnt <= 0;
+            if (scl_falling)
               state <= SEND_BYTE;
-            end else begin
-              sda_out_val <= 1;  // NACK
+          end else begin
+            sda_out_en <= 0;
+            sda_out_val <= 1;  // NACK
+            if (scl_falling)
               state <= STOP;
-            end
           end
         end
 
@@ -109,9 +108,12 @@ module i2c_slave #(
             sda_out_val <= fifo_dout[7 - bit_cnt];
             bit_cnt <= bit_cnt + 1;
             data_cycle <= 1;
-            if (bit_cnt == 7) begin
+            if (bit_cnt == 8) begin
               state <= WAIT_ACK;
+              fifo_rd_en <= 1;
               data_cycle <= 0;
+              sda_out_en <= 0;
+              sda_out_val <= 1;
             end
           end
           else if (i2c.scl == 1)
@@ -119,8 +121,8 @@ module i2c_slave #(
         end
 
         WAIT_ACK: begin
+          bit_cnt <= 0;
           if (scl_rising) begin
-            sda_out_en <= 0;
             if (sda_sync[1] == 1) begin
               state <= STOP;
             end else begin
