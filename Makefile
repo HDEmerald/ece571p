@@ -5,7 +5,7 @@ bfsk_demod_deps := $(wildcard src/dsp/*.sv)
 bfsk_demodtb_deps := tb/dsp/bfsk_demod_tb.sv tb/dsp/waveform_generator.sv
 
 goertzel_deps := src/dsp/goertzel_filter.sv
-goertzeltb_deps := tb/dsp/goertzel_filter_tb.sv tb/dsp/waveform_generator.sv
+goertzeltb_deps := tb/dsp/goertzel_filter_tb.sv tb/dsp/waveform_generator.sv tb/dsp/goertzel_filter_assertions.sv
 
 byte_packer_deps := src/dsp/byte_packer.sv
 byte_packertb_deps := tb/dsp/byte_packer_tb.sv

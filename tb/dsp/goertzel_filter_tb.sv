@@ -44,7 +44,7 @@ logic signed [ 2 * ACC_WIDTH - 1 : 0 ] f_power [ N_FREQS ];
 genvar i;
 generate
     for ( i = 0; i < N_FREQS; i++ )
-    begin
+    begin : goers
         goertzel_filter #(
             .SAMPLE_WIDTH ( SAMPLE_WIDTH ),
             .ACC_WIDTH ( ACC_WIDTH ),
@@ -56,10 +56,28 @@ generate
             .rst_n ( rst_n ),
             .start ( start ),
             .in_valid ( in_valid ),
-            .in_sample ( centered_sample[ SAMPLE_WIDTH - 1 : 0 ] ),
+            .in_sample ( centered_sample ),
             .out_valid ( f_valid[ i ] ),
             .power ( f_power[ i ])
         );
+
+        bind u_goer goertzel_filter_assertions u_goer_assert (
+            .clk ( clk ),
+            .rst_n ( rst_n ),
+            .start ( start ),
+            .in_valid ( in_valid ),
+            .in_sample ( in_sample ),
+            .active ( active ),
+            .s_prev ( s_prev ),
+            .s_prev2 ( s_prev2 ),
+            .sample_count ( sample_count ),
+            .out_valid ( out_valid ),
+            .power ( power )
+        );
+        defparam u_goer.u_goer_assert.SAMPLE_WIDTH = SAMPLE_WIDTH;
+        defparam u_goer.u_goer_assert.ACC_WIDTH = ACC_WIDTH;
+        defparam u_goer.u_goer_assert.SAMPLE_RATE = SAMPLE_RATE;
+        defparam u_goer.u_goer_assert.BAUD = BAUD;
     end
 endgenerate
 
