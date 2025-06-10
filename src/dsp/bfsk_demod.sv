@@ -33,7 +33,7 @@ localparam int WINDOW_SIZE = $rtoi( SAMPLE_RATE / BAUD + 0.5 );
 logic signed [ SAMPLE_WIDTH - 1 : 0 ] centered_sample;
 always_comb
 begin
-    centered_sample = $signed( in_data ) - $signed( 1 << ( SAMPLE_WIDTH - 1 ) );
+    centered_sample = $signed( {1'b0, in_data} ) - ( 1 << ( SAMPLE_WIDTH - 1 ) );
 end
 
 /* Symbol window counter to determine start pulse */
@@ -60,8 +60,8 @@ end
 assign in_ready = 1'b1;
 
 /* Goertzel filter outputs */
-logic f__valid [ 0 : N_TONES - 1 ];
-logic signed [ 2 * ACC_WIDTH - 1 : 0 ] f__power [ 0 : N_TONES - 1 ];
+logic f_valid [ 0 : N_TONES - 1 ];
+logic signed [ 2 * ACC_WIDTH - 1 : 0 ] f_power [ 0 : N_TONES - 1 ];
 
 /* Instance for frequency F0 */
 goertzel_filter #(
@@ -76,8 +76,8 @@ goertzel_filter #(
     .start ( start_window ),
     .in_valid ( in_valid ),
     .in_sample ( centered_sample ),
-    .out_valid ( f__valid[ 0 ] ),
-    .power ( f__power[ 0 ] )
+    .out_valid ( f_valid[ 0 ] ),
+    .power ( f_power[ 0 ] )
 );
 
 /* Instance for frequency F1 */
@@ -93,15 +93,15 @@ goertzel_filter #(
     .start ( start_window ),
     .in_valid ( in_valid ),
     .in_sample ( centered_sample ),
-    .out_valid ( f__valid[ 1 ] ),
-    .power ( f__power[ 1 ] )
+    .out_valid ( f_valid[ 1 ] ),
+    .power ( f_power[ 1 ] )
 );
 
 /* Bit decision: valid when both filters complete */
 logic bit_valid;
 logic bit_data;
-assign bit_valid = f__valid[ 0 ] & f__valid[ 1 ];
-assign bit_data = ( f__power[ 1 ] > f__power[ 0 ] ) ? 1'b1 : 1'b0;
+assign bit_valid = f_valid[ 0 ] & f_valid[ 1 ];
+assign bit_data = ( f_power[ 1 ] > f_power[ 0 ] ) ? 1'b1 : 1'b0;
 
 /* Pack bits into bytes and output when filled */
 byte_packer #(
