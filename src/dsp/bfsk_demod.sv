@@ -1,5 +1,5 @@
 /*
- * bfsk_demod_tb.sv
+ * bfsk_demod.sv
  *
  * This module takes an input BFSK waveform with 2 tones. Using a pair of
  * Goertzel filters, it identifies the bit value for each symbol and outputs
