@@ -103,4 +103,7 @@ i2c_slave #(
 	.fifo_rd_en(i2c_q_ready_out)
 );
 
+/* @@@ Assertions @@@ */
+bind i2c_mod i2c_assertions i2c_a(clk,i2c,start_cond,stop_cond);
+
 endmodule

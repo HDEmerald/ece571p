@@ -36,6 +36,9 @@ module i2c_tb;
 	.fifo_rd_en(fifo_rd_en)
   );
 
+  // Assertions
+  bind dut i2c_assertions i2c_a(clk,i2c,start_cond,stop_cond);
+
   // I2C Master tasks
   task send_start();
     repeat (CLOCK_PULSE) @(negedge clk);
